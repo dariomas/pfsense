@@ -730,8 +730,8 @@ function captiveportal_prune_old() {
 
 		/* do periodic RADIUS reauthentication? */
 		if (!$timedout && !empty($radiusservers)) {
-			if (isset($cpcfg['radacct_enable'])) {
-				if ($cpcfg['reauthenticateacct'] == "stopstart") {
+			if (isset($cpcfg['radacct_enable']) || isset($cpcfg['radacct_enable_sso'])) {
+				if ($cpcfg['reauthenticateacct'] == "stopstart" || $cpcfg['reauthenticateacct_sso'] == "stopstart") {
 					/* stop and restart accounting */
 					RADIUS_ACCOUNTING_STOP($cpentry[1], // ruleno
 						$cpentry[4], // username
@@ -750,7 +750,7 @@ function captiveportal_prune_old() {
 						$radiusservers,
 						$cpentry[2], // clientip
 						$cpentry[3]); // clientmac
-				} else if ($cpcfg['reauthenticateacct'] == "interimupdate") {
+				} else if ($cpcfg['reauthenticateacct'] == "interimupdate" || $cpcfg['reauthenticateacct_sso'] == "interimupdate") {
 					$session_time = $pruning_time - $cpentry[0];
 					if (!empty($cpentry[10]) && $cpentry[10] > 60)
 						$interval = $cpentry[10];
@@ -774,7 +774,7 @@ function captiveportal_prune_old() {
 			}
 
 			/* check this user against RADIUS again */
-			if (isset($cpcfg['reauthenticate'])) {
+			if (isset($cpcfg['reauthenticate']) || isset($cpcfg['reauthenticate_sso'])) {
 				$auth_list = RADIUS_AUTHENTICATION($cpentry[4], // username
 					base64_decode($cpentry[6]), // password
 					$radiusservers,
@@ -1229,6 +1229,29 @@ function captiveportal_init_radius_servers() {
 
 		fclose($fd);
 		unlock($cprdsrvlck);
+	}
+	if (isset($config['captiveportal'][$cpzone]['radacct_enable_sso'])) {
+		$radiusip_sso = ($config['captiveportal'][$cpzone]['radiusip_sso']) ? $config['captiveportal'][$cpzone]['radiusip_sso']: null;
+				
+		if ($config['captiveportal'][$cpzone]['radiusacctport_sso'])
+			$radiusacctport_sso = $config['captiveportal'][$cpzone]['radiusacctport_sso'];
+		else
+			$radiusacctport_sso = 1813;
+		
+		$radiuskey_sso = $config['captiveportal'][$cpzone]['radiuskey_sso'];
+		
+		if (isset($radiusip_sso)) {
+			$cprdsrvlck = lock("captiveportalradius{$cpzone}", LOCK_EX);
+			$fd = @fopen("{$g['vardb_path']}/captiveportal_radius_{$cpzone}.db", "a");
+			if (!$fd) {
+				captiveportal_syslog("Error: cannot open radius DB file in captiveportal_configure().\n");
+				unlock($cprdsrvlck);
+				return 1;
+			}
+			fwrite($fd,"\n" . $radiusip_sso . "," . $radiusacctport_sso . "," . $radiusacctport_sso . "," . $radiuskey_sso . ",sso");
+			fclose($fd);
+			unlock($cprdsrvlck);
+		}
 	}
 }
 
@@ -2044,10 +2067,17 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 			unlock($cpdblck);
 			unset($insertquery, $bpassword);
 
-			if (isset($config['captiveportal'][$cpzone]['radacct_enable']) && !empty($radiusservers[$radiusctx])) {
+			if (isset($config['captiveportal'][$cpzone]['radacct_enable']) && $radiusctx != "sso" && !empty($radiusservers[$radiusctx])) {
 				$acct_val = RADIUS_ACCOUNTING_START($pipeno, $username, $sessionid, $radiusservers[$radiusctx], $clientip, $clientmac);
-				if ($acct_val == 1)
+				if ($acct_val == 1) {
 					captiveportal_logportalauth($username,$clientmac,$clientip,$type,"RADIUS ACCOUNTING FAILED");
+				}
+			}
+			if (isset($config['captiveportal'][$cpzone]['radacct_enable_sso']) && $radiusctx == "sso" && !empty($radiusservers[$radiusctx])) {
+				$acct_val = RADIUS_ACCOUNTING_START($pipeno, $username, $sessionid, $radiusservers[$radiusctx], $clientip, $clientmac);
+				if ($acct_val == 1) {
+					captiveportal_logportalauth($username,$clientmac,$clientip,$type,"RADIUS ACCOUNTING FAILED");
+				}
 			}
 		}
 	} else {
@@ -2202,7 +2232,7 @@ function captiveportal_blocked_mac($mac) {
 function captiveportal_send_server_accounting($off = false) {
 	global $cpzone, $config;
 
-	if (!isset($config['captiveportal'][$cpzone]['radacct_enable'])) {
+	if (!isset($config['captiveportal'][$cpzone]['radacct_enable']) && !isset($config['captiveportal'][$cpzone]['radacct_enable_sso'])) {
 		return;
 	}
 	if ($off) {

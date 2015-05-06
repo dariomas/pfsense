@@ -117,8 +117,92 @@ if (file_exists("{$g['vardb_path']}/captiveportal_radius_{$cpzone}.db")) {
 
 /* find radius context */
 $radiusctx = 'first';
-if ($_POST['auth_user2'])
+if ($_POST['auth_user2']) {
 	$radiusctx = 'second';
+}
+
+if ($_REQUEST['idem'])
+{
+        /*
+         * If the login parameter is requested, it means that we should log
+         * the user in. We do that by requiring the user to be authenticated.
+         */
+		$radiusctx = 'sso';
+        /*
+         * We need access to the various simpleSAMLphp classes. These are loaded
+         * by the simpleSAMLphp autoloader.
+         */
+        require_once('/usr/local/vhosts/simplesamlphp/lib/_autoload.php');
+
+        /*
+         * We use the default-sp authentication source.
+         */
+        $as = new SimpleSAML_Auth_Simple('default-sp');
+        captiveportal_logportalauth("SIMPLESAMLPHP",$clientmac,$clientip,"new Auth");
+
+        /*
+         * We set a variable depending on whether the user is authenticated or not.
+         * This allows us to show the user a login link or a logout link depending
+         * on the authentication state.
+         */
+        $isAuth = $as->isAuthenticated();
+        captiveportal_logportalauth("SIMPLESAMLPHP",$clientmac,$clientip,var_export($isAuth, true));
+
+        /*
+         * Note that the requireAuth-function will preserve all GET-parameters
+         * and POST-parameters by default.
+         */
+		$protocol = (isset($cpcfg['httpslogin'])) ? 'https://' : 'http://';
+        //$as->requireAuth(array('ReturnTo' => 'https://cp-test.caspur.it:8005/index.php?zone=idem&idem=1'));
+		$as->requireAuth(array('ReturnTo' => "{$protocol}{$ourhostname}/index.php?zone={$cpzone}&redirurl={$redirurl}&idem=1"));
+        //$as->requireAuth();
+        /* The previous function will only return if the user is authenticated. */
+
+        captiveportal_logportalauth("SIMPLESAMLPHP",$clientmac,$clientip,"just Authenticathed");
+ 
+        /* Authorize using the attributes if the user is authenticated. */
+        if ($isAuth)
+        {
+
+                /*
+                 * Retrieve the users attributes. We will list them if the user
+                 * is authenticated.
+                 */
+                $attributes = $as->getAttributes();
+
+                captiveportal_logportalauth("SIMPLESAMLPHP",$clientmac,$clientip,"already Authenticathed");
+                foreach ($attributes as $name => $values) {
+                        foreach ($values as $value) {
+                                captiveportal_logportalauth($name,$clientmac,$clientip,$value);
+                                if ($name == 'eduPersonPrincipalName') $user = $value;
+                                if ($name == 'eduPersonTargetedID') $paswd = $value;
+                        }
+                }
+				if (!isset($cpcfg['reauthenticate'])) {
+						captiveportal_logportalauth($user,$paswd,$clientip,"LOGIN SSO");
+						portal_allow($clientip, $clientmac,$user,$paswd);
+				} else {
+		
+						$auth_list = radius($user,$paswd,$clientip,$clientmac,"USER LOGIN", $radiusctx);
+						captiveportal_logportalauth($user,$paswd,$clientip,"RADIUS Auth",$auth_list['auth_val']);
+						$type = "error";
+						if (!empty($auth_list['url_redirection'])) {
+								$redirurl = $auth_list['url_redirection'];
+								$type = "redir";
+						}
+
+						if ($auth_list['auth_val'] == 1) {
+								captiveportal_logportalauth($user,$clientmac,$clientip,"ERROR",$auth_list['error']);
+								portal_reply_page($redirurl, $type, $auth_list['error'] ? $auth_list['error'] : $errormsg);
+						} else if ($auth_list['auth_val'] == 3) {
+								captiveportal_logportalauth($user,$clientmac,$clientip,"FAILURE",$auth_list['reply_message']);
+								portal_reply_page($redirurl, $type, $auth_list['reply_message'] ? $auth_list['reply_message'] : $errormsg);
+						}
+
+                //portal_allow($clientip, $clientmac, "IDEM authenticated");
+				}
+		}
+} else
 
 if ($_POST['logout_id']) {
 	echo <<<EOD
