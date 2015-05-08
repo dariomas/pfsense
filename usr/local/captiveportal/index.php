@@ -180,10 +180,10 @@ if ($_REQUEST['idem'])
                 }
 				if (!isset($cpcfg['reauthenticate'])) {
 						captiveportal_logportalauth($user,$paswd,$clientip,"LOGIN SSO");
-						portal_allow($clientip, $clientmac,$user,$paswd);
+								portal_allow($clientip,	$clientmac,$user,$paswd,null,null,$radiusctx);
 				} else {
 		
-						$auth_list = radius($user,$paswd,$clientip,$clientmac,"USER LOGIN", $radiusctx);
+						$auth_list = radius($user,$paswd,$clientip,$clientmac,"USER LOGIN", $radiulsctx);
 						captiveportal_logportalauth($user,$paswd,$clientip,"RADIUS Auth",$auth_list['auth_val']);
 						$type = "error";
 						if (!empty($auth_list['url_redirection'])) {

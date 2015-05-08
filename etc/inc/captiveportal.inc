@@ -731,7 +731,7 @@ function captiveportal_prune_old() {
 		/* do periodic RADIUS reauthentication? */
 		if (!$timedout && !empty($radiusservers)) {
 			if (isset($cpcfg['radacct_enable']) || isset($cpcfg['radacct_enable_sso'])) {
-				if ($cpcfg['reauthenticateacct'] == "stopstart" || $cpcfg['reauthenticateacct_sso'] == "stopstart") {
+				if ($cpcfg['reauthenticateacct'] == "stopstart" || $cpcfg['reauthenticateacct_sso'] === "stopstart") {
 					/* stop and restart accounting */
 					RADIUS_ACCOUNTING_STOP($cpentry[1], // ruleno
 						$cpentry[4], // username
@@ -750,7 +750,7 @@ function captiveportal_prune_old() {
 						$radiusservers,
 						$cpentry[2], // clientip
 						$cpentry[3]); // clientmac
-				} else if ($cpcfg['reauthenticateacct'] == "interimupdate" || $cpcfg['reauthenticateacct_sso'] == "interimupdate") {
+				} else if ($cpcfg['reauthenticateacct'] == "interimupdate" || $cpcfg['reauthenticateacct_sso'] === "interimupdate") {
 					$session_time = $pruning_time - $cpentry[0];
 					if (!empty($cpentry[10]) && $cpentry[10] > 60)
 						$interval = $cpentry[10];
@@ -1233,6 +1233,10 @@ function captiveportal_init_radius_servers() {
 	if (isset($config['captiveportal'][$cpzone]['radacct_enable_sso'])) {
 		$radiusip_sso = ($config['captiveportal'][$cpzone]['radiusip_sso']) ? $config['captiveportal'][$cpzone]['radiusip_sso']: null;
 				
+		if ($config['captiveportal'][$cpzone]['radiusport_sso'])
+			$radiusport_sso = $config['captiveportal'][$cpzone]['radiusport_sso'];
+		else
+			$radiusport_sso = 1812;
 		if ($config['captiveportal'][$cpzone]['radiusacctport_sso'])
 			$radiusacctport_sso = $config['captiveportal'][$cpzone]['radiusacctport_sso'];
 		else
@@ -1248,7 +1252,7 @@ function captiveportal_init_radius_servers() {
 				unlock($cprdsrvlck);
 				return 1;
 			}
-			fwrite($fd,"\n" . $radiusip_sso . "," . $radiusacctport_sso . "," . $radiusacctport_sso . "," . $radiuskey_sso . ",sso");
+			fwrite($fd,"\n" . $radiusip_sso . "," . $radiusport_sso . "," . $radiusacctport_sso . "," . $radiuskey_sso . ",sso");
 			fclose($fd);
 			unlock($cprdsrvlck);
 		}
@@ -2067,13 +2071,13 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 			unlock($cpdblck);
 			unset($insertquery, $bpassword);
 
-			if (isset($config['captiveportal'][$cpzone]['radacct_enable']) && $radiusctx != "sso" && !empty($radiusservers[$radiusctx])) {
+			if (isset($config['captiveportal'][$cpzone]['radacct_enable']) && $radiusctx !== "sso" && !empty($radiusservers[$radiusctx])) {
 				$acct_val = RADIUS_ACCOUNTING_START($pipeno, $username, $sessionid, $radiusservers[$radiusctx], $clientip, $clientmac);
 				if ($acct_val == 1) {
 					captiveportal_logportalauth($username,$clientmac,$clientip,$type,"RADIUS ACCOUNTING FAILED");
 				}
 			}
-			if (isset($config['captiveportal'][$cpzone]['radacct_enable_sso']) && $radiusctx == "sso" && !empty($radiusservers[$radiusctx])) {
+			if (isset($config['captiveportal'][$cpzone]['radacct_enable_sso']) && $radiusctx === "sso" && !empty($radiusservers[$radiusctx])) {
 				$acct_val = RADIUS_ACCOUNTING_START($pipeno, $username, $sessionid, $radiusservers[$radiusctx], $clientip, $clientmac);
 				if ($acct_val == 1) {
 					captiveportal_logportalauth($username,$clientmac,$clientip,$type,"RADIUS ACCOUNTING FAILED");
@@ -2244,9 +2248,17 @@ function captiveportal_send_server_accounting($off = false) {
 	if (empty($radiusservers)) {
 		return;
 	}
-	foreach ($radiusservers['first'] as $radsrv) {
-		// Add a new server to our instance
-		$racct->addServer($radsrv['ipaddr'], $radsrv['acctport'], $radsrv['key']);
+	if (!isset($config['captiveportal'][$cpzone]['radacct_enable'])) {
+		foreach ($radiusservers['first'] as $radsrv) {
+			// Add a new server to our instance
+			$racct->addServer($radsrv['ipaddr'], $radsrv['acctport'], $radsrv['key']);
+		}
+	}
+	if (!isset($config['captiveportal'][$cpzone]['radacct_enable_sso'])) {
+		foreach ($radiusservers['sso'] as $radsrv) {
+			// Add a new server to our instance
+			$racct->addServer($radsrv['ipaddr'], $radsrv['acctport'], $radsrv['key']);
+		}
 	}
 	if (PEAR::isError($racct->start())) {
 		$retvalue['acct_val'] = 1;

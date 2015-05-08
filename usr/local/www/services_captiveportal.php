@@ -197,8 +197,7 @@ if ($a_cp[$cpzone]) {
 	$pconfig['radiusport_sso'] = $a_cp[$cpzone]['radiusport_sso'];
 	$pconfig['radacct_enable_sso'] = isset($a_cp[$cpzone]['radacct_enable_sso']);
 	$pconfig['radiusacctport_sso'] = $a_cp[$cpzone]['radiusacctport_sso'];
-	$pconfig['reauthenticateacct_sso'] = $a_cp[$cpzone]['reauthenticateacct_sso'];
-	$pconfig['reauthenticate_sso'] = isset($a_cp[$cpzone]['reauthenticate_sso']);
+	$pconfig['reauthenticateacct_sso'] = isset($a_cp[$cpzone]['reauthenticateacct_sso']);
 	$pconfig['radiuskey_sso'] = $a_cp[$cpzone]['radiuskey_sso'];
 	//### END SSO CONFIG ###
 	$pconfig['page'] = array();
@@ -319,6 +318,9 @@ if ($_POST) {
     if (($_POST['radiusip_sso'] && !is_ipaddr($_POST['radiusip_sso']))) {
         $input_errors[] = sprintf(gettext("A valid IP address must be specified. [%s]"), $_POST['radiusip_sso']);
     }
+    if (($_POST['radiusport_sso'] && !is_port($_POST['radiusport_sso']))) {
+        $input_errors[] = sprintf(gettext("A valid port number must be specified. [%s]"), $_POST['radiusport_sso']);
+ 	}
     if (($_POST['radiusacctport_sso'] && !is_port($_POST['radiusacctport_sso']))) {
         $input_errors[] = sprintf(gettext("A valid port number must be specified. [%s]"), $_POST['radiusacctport_sso']);
  	}
@@ -418,7 +420,6 @@ if ($_POST) {
 		$newcp['radiusip_sso']= $_POST['radiusip_sso'];
 		$newcp['radiusport_sso'] = $_POST['radiusport_sso'];
 		$newcp['radacct_enable_sso'] = $_POST['radacct_enable_sso'] ? true : false;
-		$newcp['reauthenticate_sso'] = $_POST['reauthenticate_sso'] ? true : false;
 		$newcp['radiusacctport_sso']= $_POST['radiusacctport_sso'];
 		$newcp['reauthenticateacct_sso']= $_POST['reauthenticateacct_sso'];
 		$newcp['radiuskey_sso']= $_POST['radiuskey_sso'];
@@ -726,8 +727,8 @@ function enable_change(enable_change) {
 		  <td>&nbsp;</td>
 		  <td>&nbsp;</td>
                 </tr>
-<tr>
-                  <td width="22%" valign="top" class="vncell"><?=gettext("RADIUS Protocol"); ?></td>
+		<tr>
+                  <td width="22%" valign="top" class="vncell"><?=gettext("Radius Protocol"); ?></td>
                   <td width="78%" class="vtable">
                     <table cellpadding="0" cellspacing="0" summary="radius">
                     <tr>
@@ -751,107 +752,81 @@ function enable_change(enable_change) {
                       </tr>
                     </table>
                   </td>
+                  </tr><tr>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
                   </tr>
-<!--### BEGIN SSO CONFIG ###-->		
-		
+<!--### BEGIN SSO CONFIG ###-->
 		<tr>
 			<td colspan="2">
 							<input name="enable_sso" type="checkbox" class="formfld" id="enable_sso" value="yes" <?php if ($pconfig['enable_sso']) echo "checked=\"checked\""; ?> />
 							<strong><?=gettext("Enable SSO Authentication"); ?></strong><br /><br/>
 			</td>
-		</tr>
-        <tr>
-		  <td>&nbsp;</td>
-        </tr>
-<tr>
-                  <td width="22%" valign="top" class="vncell"><?=gettext("Radius SSO Option"); ?></td>
-                  <td width="78%" class="vtable">
-                    <table cellpadding="0" cellspacing="0" summary="authentication_sso">
-                    <tr>
-                      <td colspan="2"><input name="radacct_enable_sso" type="checkbox" class="formfld" id="radacct_enable_sso" value="yes" onclick="enable_change(false)" <?php if($pconfig['radacct_enable_sso']) echo "checked=\"checked\""; ?> />
-                <?=gettext("Send RADIUS accounting packets"); ?><br />
-                <?=gettext("If this is enabled, RADIUS accounting packets will be sent to the RADIUS server specified below."); ?></td>
-                      </tr>
-					<tr>
-			<td>&nbsp;</td>
-					</tr>
-					<tr>
-				<td colspan="2" valign="top" class="optsect_t2"><?=gettext("RADIUS Protocol"); ?></td>
-			</tr>
-<tr>
-                  
-                  <td>
-                    <table cellpadding="0" cellspacing="0" summary="radius">
-                    <tr>
-                      <td colspan="2"><input name="radius_protocol" type="radio" id="radius_protocol" value="PAP" onclick="enable_change(false)" <?php if($pconfig['auth_method']=="radius" && $pconfig['radius_protocol']!="CHAP_MD5" && $pconfig['radius_protocol']!="MSCHAPv1" && $pconfig['radius_protocol']!="MSCHAPv2") echo "checked=\"checked\""; ?> />
-      <?=gettext("PAP"); ?></td>
-                      </tr>
-                    <tr>
-                      <td colspan="2"><input name="radius_protocol" type="radio" id="radius_protocol" value="CHAP_MD5" onclick="enable_change(false)" <?php if($pconfig['auth_method']=="radius" && $pconfig['radius_protocol']=="CHAP_MD5") echo "checked=\"checked\""; ?> />
-      <?=gettext("CHAP_MD5"); ?></td>
-                      </tr>
-                    <tr>
-                      <td colspan="2"><input name="radius_protocol" type="radio" id="radius_protocol" value="MSCHAPv1" onclick="enable_change(false)" <?php if($pconfig['auth_method']=="radius" && $pconfig['radius_protocol']=="MSCHAPv1") echo "checked=\"checked\""; ?> />
-      <?=gettext("MSCHAPv1"); ?></td>
-                      </tr>
-                    <tr>
-                      <td colspan="2"><input name="radius_protocol" type="radio" id="radius_protocol" value="MSCHAPv2" onclick="enable_change(false)" <?php if($pconfig['auth_method']=="radius" && $pconfig['radius_protocol']=="MSCHAPv2") echo "checked=\"checked\""; ?> />
-      <?=gettext("MSCHAPv2"); ?></td>
-                      </tr><tr>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      </tr>
-                    </table>
-                  </td>
+		</tr><tr>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
                   </tr>
-<tr>
-		  <td>&nbsp;</td>
-        </tr>
-		<tr>
-			<td class="vncell"><?=gettext("Radius IP Server"); ?></td>
-			<td class="vtable"><input name="radiusip_sso" type="text" class="formfld unknown" id="radiusip_sso" size="20" value="<?=htmlspecialchars($pconfig['radiusip_sso']); ?>" /><br />
-                               <?=gettext("Enter the IP address of the RADIUS server which users of the captive portal have to authenticate against."); ?></td>
-        </tr>
-		<tr>
-				<td class="vncell" valign="top"><?=gettext("Port"); ?></td>
-				<td class="vtable"><input name="radiusport_sso" type="text" class="formfld unknown" id="radiusport_sso" size="5" value="<?=htmlspecialchars($pconfig['radiusport_sso']);?>" /><br />
-				 <?=gettext("Leave this field blank to use the default port (1812)."); ?></td>
-			</tr>
-        <tr>
-			<td class="vncell"><?=gettext("Accounting Port"); ?></td>
-            <td class="vtable"><input name="radiusacctport_sso" type="text" class="formfld unknown" id="radiusacctport_sso" size="5" value="<?=htmlspecialchars($pconfig['radiusacctport_sso']);?>" /><br />
-								<?=gettext("Leave blank to use the default port (1813)"); ?></td>
-        </tr>
-        <tr>
-			<td class="vncell" valign="top"><?=gettext("Shared secret"); ?>&nbsp;&nbsp;</td>
-            <td class="vtable"><input name="radiuskey_sso" type="text" class="formfld unknown" id="radiuskey_sso" size="16" value="<?=htmlspecialchars($pconfig['radiuskey_sso']);?>" /><br />
-								<?=gettext("Leave blank to not use a RADIUS shared secret (not recommended)."); ?></td>
-        </tr>
-		<tr>
-			<td class="vncell"><?=gettext("Accounting Updates"); ?></td>
-            <td class="vtable">
-                <input name="reauthenticateacct_sso" type="radio" value="stopstart" <?php if($pconfig['reauthenticateacct_sso'] == "stopstart") echo "checked=\"checked\""; ?> /> <?=gettext("stop/start accounting"); ?><br />
-                <input name="reauthenticateacct_sso" type="radio" value="interimupdate" <?php if($pconfig['reauthenticateacct_sso'] == "interimupdate") echo "checked=\"checked\""; ?> /> <?=gettext("interim update"); ?>
-            </td>
-        </tr>
-					
-					
-                    <tr>
-                      <td>&nbsp;</td>
-                      <td>&nbsp;</td>
-                      </tr>
-                    </table>
-                  </td>
-</tr>        
-
 		
-<!--### END SSO CONFIG ###-->
-<tr>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  </tr>
                 </table>
 		<table width="100%" border="0" cellpadding="6" cellspacing="0" summary="primary athentication">
+
+			<tr>
+				<td colspan="2" valign="top" class="listtopic">SSO Authentication Source</td>
+			</tr>
+			<tr>
+				<td colspan="2" valign="top" class="optsect_t2"><?=gettext("SSO RADIUS options"); ?></td>
+			</tr>
+			<tr>
+				<td class="vncell">&nbsp;</td>
+				<td class="vtable"><input name="radacct_enable_sso" type="checkbox" class="formfld" id="radacct_enable_sso" value="yes" onclick="enable_change(false)" <?php if($pconfig['radacct_enable_sso']) echo "checked=\"checked\""; ?> />
+					<?=gettext("Send RADIUS accounting packets"); ?><br />
+					<?=gettext("If this is enabled, RADIUS accounting packets will be sent to the RADIUS server specified below."); ?></td>
+            </tr>
+			<tr>
+                  <td width="22%" valign="top" class="vncell"><?=gettext("RADIUS Protocol"); ?></td>
+                  <td width="78%" class="vtable">
+                    <input name="radius_protocol" type="radio" id="radius_protocol" value="PAP" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']!="CHAP_MD5" && $pconfig['radius_protocol']!="MSCHAPv1" && $pconfig['radius_protocol']!="MSCHAPv2") echo "checked=\"checked\""; ?> />
+						<?=gettext("PAP"); ?><br/>
+                    <input name="radius_protocol" type="radio" id="radius_protocol" value="CHAP_MD5" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="CHAP_MD5") echo "checked=\"checked\""; ?> />
+						<?=gettext("CHAP_MD5"); ?><br/>
+                    <input name="radius_protocol" type="radio" id="radius_protocol" value="MSCHAPv1" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="MSCHAPv1") echo "checked=\"checked\""; ?> />
+						<?=gettext("MSCHAPv1"); ?><br/>
+                    <input name="radius_protocol" type="radio" id="radius_protocol" value="MSCHAPv2" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="MSCHAPv2") echo "checked=\"checked\""; ?> />
+						<?=gettext("MSCHAPv2"); ?></td>
+            </tr>
+			<tr>
+					<td class="vncell" valign="top"><?=gettext("Radius IP Server"); ?></td>
+					<td class="vtable"><input name="radiusip_sso" type="text" class="formfld unknown" id="radiusip_sso" size="20" value="<?=htmlspecialchars($pconfig['radiusip_sso']); ?>" /><br />
+                               <?=gettext("Enter the IP address of the RADIUS server which users of the captive portal have to authenticate against."); ?></td>
+				</tr>
+				<tr>
+					<td class="vncell" valign="top"><?=gettext("Port"); ?></td>
+					<td class="vtable"><input name="radiusport_sso" type="text" class="formfld unknown" id="radiusport_sso" size="5" value="<?=htmlspecialchars($pconfig['radiusport_sso']);?>" /><br />
+					<?=gettext("Leave this field blank to use the default port (1812)."); ?></td>
+				</tr>
+				<tr>
+					<td class="vncell"><?=gettext("Accounting Port"); ?></td>
+					<td class="vtable"><input name="radiusacctport_sso" type="text" class="formfld unknown" id="radiusacctport_sso" size="5" value="<?=htmlspecialchars($pconfig['radiusacctport_sso']);?>" /><br />
+								<?=gettext("Leave blank to use the default port (1813)"); ?></td>
+				</tr>
+				<tr>
+					<td class="vncell" valign="top"><?=gettext("Shared secret"); ?>&nbsp;&nbsp;</td>
+					<td class="vtable"><input name="radiuskey_sso" type="text" class="formfld unknown" id="radiuskey_sso" size="16" value="<?=htmlspecialchars($pconfig['radiuskey_sso']);?>" /><br />
+								<?=gettext("Leave blank to not use a RADIUS shared secret (not recommended)."); ?></td>
+				</tr>
+				<tr>
+					<td class="vncell"><?=gettext("Accounting Updates"); ?></td>
+					<td class="vtable">
+						<input name="reauthenticateacct_sso" type="radio" value="stopstart" <?php if($pconfig['reauthenticateacct_sso'] == "stopstart") echo "checked=\"checked\""; ?> /> <?=gettext("stop/start accounting"); ?><br />
+						<input name="reauthenticateacct_sso" type="radio" value="interimupdate" <?php if($pconfig['reauthenticateacct_sso'] == "interimupdate") echo "checked=\"checked\""; ?> /> <?=gettext("interim update"); ?>
+					</td>
+				</tr>
+				<tr>
+					<td>&nbsp;</td>
+					<td>&nbsp;</td>
+				</tr>
+
+<!--### END SSO CONFIG ###-->
 			<tr>
 				<td colspan="2" valign="top" class="listtopic">Primary Authentication Source</td>
 			</tr>
