@@ -197,8 +197,10 @@ if ($a_cp[$cpzone]) {
 	$pconfig['radiusport_sso'] = $a_cp[$cpzone]['radiusport_sso'];
 	$pconfig['radacct_enable_sso'] = isset($a_cp[$cpzone]['radacct_enable_sso']);
 	$pconfig['radiusacctport_sso'] = $a_cp[$cpzone]['radiusacctport_sso'];
-	$pconfig['reauthenticateacct_sso'] = isset($a_cp[$cpzone]['reauthenticateacct_sso']);
+	$pconfig['reauthenticateacct_sso'] = $a_cp[$cpzone]['reauthenticateacct_sso'];
 	$pconfig['radiuskey_sso'] = $a_cp[$cpzone]['radiuskey_sso'];
+	$pconfig['username_sso'] = $a_cp[$cpzone]['username_sso'];
+	$pconfig['password_sso'] = $a_cp[$cpzone]['password_sso'];
 	//### END SSO CONFIG ###
 	$pconfig['page'] = array();
 	if ($a_cp[$cpzone]['page']['htmltext'])
@@ -423,6 +425,8 @@ if ($_POST) {
 		$newcp['radiusacctport_sso']= $_POST['radiusacctport_sso'];
 		$newcp['reauthenticateacct_sso']= $_POST['reauthenticateacct_sso'];
 		$newcp['radiuskey_sso']= $_POST['radiuskey_sso'];
+		$newcp['username_sso']= $_POST['username_sso'];
+		$newcp['password_sso']= $_POST['password_sso'];
 	//### END SSO CONFIG ###
 
 		if (!is_array($newcp['page']))
@@ -468,7 +472,9 @@ function enable_change(enable_change) {
 	localauth_endis = !((!endis && document.iform.auth_method[1].checked) || enable_change);
 	radius_endis = !((!endis && document.iform.auth_method[2].checked) || enable_change);
 	https_endis = !((!endis && document.iform.httpslogin_enable.checked) || enable_change);
-
+	sso_endis = !((!endis && document.iform.enable_sso.checked) || enable_change);
+	sso_acct_endis = !((!endis && document.iform.radacct_enable_sso.checked) || enable_change);
+	
 	document.iform.cinterface.disabled = endis;
 	//document.iform.maxproc.disabled = endis;
 	document.iform.maxprocperip.disabled = endis;
@@ -497,7 +503,7 @@ function enable_change(enable_change) {
 	document.iform.peruserbw.disabled = endis;
 	document.iform.bwdefaultdn.disabled = endis;
 	document.iform.bwdefaultup.disabled = endis;
-	document.iform.reauthenticate.disabled = radius_endis;
+	
 	document.iform.auth_method[0].disabled = endis;
 	document.iform.auth_method[1].disabled = endis;
 	document.iform.auth_method[2].disabled = endis;
@@ -505,32 +511,67 @@ function enable_change(enable_change) {
 	document.iform.radius_protocol[1].disabled = radius_endis;
 	document.iform.radius_protocol[2].disabled = radius_endis;
 	document.iform.radius_protocol[3].disabled = radius_endis;
-	document.iform.radmac_enable.disabled = radius_endis;
+	
 	document.iform.httpslogin_enable.disabled = endis;
-	document.iform.radmac_format.disabled = radius_endis;
+	
 	document.iform.httpsname.disabled = https_endis;
 	document.iform.certref.disabled = https_endis;
 	document.iform.nohttpsforwards.disabled = https_endis;
 	document.iform.logoutwin_enable.disabled = endis;
 	document.iform.nomacfilter.disabled = endis;
 	document.iform.noconcurrentlogins.disabled = endis;
-	document.iform.radiusvendor.disabled = radius_endis;
-	document.iform.radiussession_timeout.disabled = radius_endis;
-	document.iform.radiussrcip_attribute.disabled = radius_endis;
+	
+	
 	document.iform.htmlfile.disabled = endis;
 	document.iform.errfile.disabled = endis;
 	document.iform.logoutfile.disabled = endis;
 
 	document.iform.radiusacctport.disabled = (radius_endis || !document.iform.radacct_enable.checked) && !enable_change;
 
-	document.iform.radmac_secret.disabled = (radius_endis || !document.iform.radmac_enable.checked) && !enable_change;
-
+	
 	var radacct_dis = (radius_endis || !document.iform.radacct_enable.checked) && !enable_change;
 	document.iform.reauthenticateacct[0].disabled = radacct_dis;
 	document.iform.reauthenticateacct[1].disabled = radacct_dis;
 	document.iform.reauthenticateacct[2].disabled = radacct_dis;
-	document.iform.reverseacct.disabled = (radius_endis || !document.iform.radacct_enable.checked) && !enable_change;
-	document.iform.radiusnasid.disabled = radius_endis;
+	//document.iform.radiussrcip_attribute.disabled = (!document.iform.radacct_enable_sso.checked && radius_endis);
+
+	//SSO
+	document.iform.radacct_enable_sso.disabled = sso_endis;
+	document.iform.radiusip_sso.disabled = sso_endis;
+	document.iform.radiusport_sso.disabled = sso_endis;
+	document.iform.radiusacctport_sso.disabled = sso_endis;
+	document.iform.radiuskey_sso.disabled = sso_endis;
+	document.iform.reauthenticateacct_sso[0].disabled = sso_endis;
+	document.iform.reauthenticateacct_sso[1].disabled = sso_endis;
+	document.iform.username_sso.disabled = sso_endis;
+	document.iform.password_sso.disabled = sso_endis;
+	document.getElementById('protocol_sso').style.display="block";
+	if (!radius_endis) {
+		document.getElementById('protocol_sso').style.display="none";
+		document.getElementById('protocol_sso_expl').style.display="block";
+	}
+	else {
+		document.getElementById('protocol_sso_expl').style.display="none";
+	}
+	
+	document.iform.reauthenticate.disabled = (sso_acct_endis || sso_endis) && radius_endis ;
+	document.iform.radmac_enable.disabled = (sso_acct_endis || sso_endis) && radius_endis ;
+	document.iform.radmac_format.disabled = (sso_acct_endis || sso_endis) && radius_endis ;
+	document.iform.radiussession_timeout.disabled = (sso_acct_endis || sso_endis ) && radius_endis ;
+	document.iform.reverseacct.disabled = (radius_endis || document.iform.radacct_enable_sso.disabled) && !enable_change && sso_acct_endis;
+	document.iform.radiusnasid.disabled = (sso_acct_endis || sso_endis ) && radius_endis ;
+	document.iform.radiussrcip_attribute.disabled = (sso_acct_endis || sso_endis ) && radius_endis ;
+	document.iform.radiusvendor.disabled = (sso_acct_endis || sso_endis ) && radius_endis ;
+	document.iform.radmac_secret.disabled=true;
+	if (document.iform.radmac_enable.disable==true) {
+		document.iform.radmac_secret.disabled=true;
+	}
+	else if (document.iform.radmac_enable.checked==true) {
+		document.iform.radmac_secret.disabled=false;
+	}
+	//document.iform.radmac_secret.disabled = (!document.iform.radmac_enable.checked && document.iform.radmac_enable.disabled);
+
+
 }
 //]]>
 </script>
@@ -759,8 +800,9 @@ function enable_change(enable_change) {
 <!--### BEGIN SSO CONFIG ###-->
 		<tr>
 			<td colspan="2">
-							<input name="enable_sso" type="checkbox" class="formfld" id="enable_sso" value="yes" <?php if ($pconfig['enable_sso']) echo "checked=\"checked\""; ?> />
-							<strong><?=gettext("Enable SSO Authentication"); ?></strong><br /><br/>
+				<input name="enable_sso" type="checkbox" class="formfld" id="enable_sso" value="yes" onclick="enable_change(false)"
+				<?php if ($pconfig['enable_sso']) echo "checked=\"checked\""; ?> />
+				<strong><?=gettext("Enable SSO Authentication"); ?></strong><br /><br/>
 			</td>
 		</tr><tr>
                   <td>&nbsp;</td>
@@ -782,9 +824,9 @@ function enable_change(enable_change) {
 					<?=gettext("Send RADIUS accounting packets"); ?><br />
 					<?=gettext("If this is enabled, RADIUS accounting packets will be sent to the RADIUS server specified below."); ?></td>
             </tr>
-			<tr>
+	    <tr>
                   <td width="22%" valign="top" class="vncell"><?=gettext("RADIUS Protocol"); ?></td>
-                  <td width="78%" class="vtable">
+                  <td width="78%" class="vtable" id="protocol_sso">
                     <input name="radius_protocol" type="radio" id="radius_protocol" value="PAP" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']!="CHAP_MD5" && $pconfig['radius_protocol']!="MSCHAPv1" && $pconfig['radius_protocol']!="MSCHAPv2") echo "checked=\"checked\""; ?> />
 						<?=gettext("PAP"); ?><br/>
                     <input name="radius_protocol" type="radio" id="radius_protocol" value="CHAP_MD5" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="CHAP_MD5") echo "checked=\"checked\""; ?> />
@@ -793,6 +835,9 @@ function enable_change(enable_change) {
 						<?=gettext("MSCHAPv1"); ?><br/>
                     <input name="radius_protocol" type="radio" id="radius_protocol" value="MSCHAPv2" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="MSCHAPv2") echo "checked=\"checked\""; ?> />
 						<?=gettext("MSCHAPv2"); ?></td>
+		  <td width="78%" class="vtable" id="protocol_sso_expl" style="display: none;">
+			To set RADIUS protocol please choose the right one in the former list.
+		  </td>
             </tr>
 			<tr>
 					<td class="vncell" valign="top"><?=gettext("Radius IP Server"); ?></td>
@@ -819,6 +864,18 @@ function enable_change(enable_change) {
 					<td class="vtable">
 						<input name="reauthenticateacct_sso" type="radio" value="stopstart" <?php if($pconfig['reauthenticateacct_sso'] == "stopstart") echo "checked=\"checked\""; ?> /> <?=gettext("stop/start accounting"); ?><br />
 						<input name="reauthenticateacct_sso" type="radio" value="interimupdate" <?php if($pconfig['reauthenticateacct_sso'] == "interimupdate") echo "checked=\"checked\""; ?> /> <?=gettext("interim update"); ?>
+					</td>
+				</tr>
+				<tr>
+					<td class="vncell"><?=gettext("SSO Username"); ?></td>
+					<td class="vtable">
+						<input name="username_sso" type="text" class="formfld unknown" id="username_sso" size="25" value="<?=htmlspecialchars($pconfig['username_sso']);?>" />
+					</td>
+				</tr>
+				<tr>
+					<td class="vncell"><?=gettext("SSO Password"); ?></td>
+					<td class="vtable">
+						<input name="password_sso" type="text" class="formfld unknown" id="password_sso" size="25" value="<?=htmlspecialchars($pconfig['password_sso']);?>" />
 					</td>
 				</tr>
 				<tr>

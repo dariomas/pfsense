@@ -171,19 +171,26 @@ if ($_REQUEST['idem'])
                 $attributes = $as->getAttributes();
 
                 captiveportal_logportalauth("SIMPLESAMLPHP",$clientmac,$clientip,"already Authenticathed");
+		$name_sso = $cpcfg['username_sso'] === "" ? 'eduPersonPrincipalName' : $cpcfg['username_sso'];
+		$password_sso = $cpcfg['password_sso'] === "" ? 'eduPersonPrincipalName' : $cpcfg['username_sso'];
                 foreach ($attributes as $name => $values) {
                         foreach ($values as $value) {
                                 captiveportal_logportalauth($name,$clientmac,$clientip,$value);
-                                if ($name == 'eduPersonPrincipalName') $user = $value;
-                                if ($name == 'eduPersonTargetedID') $paswd = $value;
+                                if ($name == $name_sso){
+					$user = $value;
+				}
+                                if ($name == $password_sso) {
+					$paswd = $value;
+				}
                         }
                 }
+				
 				if (!isset($cpcfg['reauthenticate'])) {
 						captiveportal_logportalauth($user,$paswd,$clientip,"LOGIN SSO");
 								portal_allow($clientip,	$clientmac,$user,$paswd,null,null,$radiusctx);
 				} else {
 		
-						$auth_list = radius($user,$paswd,$clientip,$clientmac,"USER LOGIN", $radiulsctx);
+						$auth_list = radius($user,$paswd,$clientip,$clientmac,"USER LOGIN", $radiusctx);
 						captiveportal_logportalauth($user,$paswd,$clientip,"RADIUS Auth",$auth_list['auth_val']);
 						$type = "error";
 						if (!empty($auth_list['url_redirection'])) {
