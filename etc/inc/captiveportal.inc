@@ -1319,7 +1319,7 @@ function captiveportal_syslog($message) {
 	closelog();
 }
 
-function radius($username,$password,$clientip,$clientmac,$type, $radiusctx = null) {
+function radius($username,$password,$clientip,$clientmac,$type, $radiusctx = null, $retrmacap=false) {
 	global $g, $config, $cpzoneid;
 
 	$pipeno = captiveportal_get_next_dn_ruleno();
@@ -1342,7 +1342,8 @@ function radius($username,$password,$clientip,$clientmac,$type, $radiusctx = nul
 		$radiusservers[$radiusctx],
 		$clientip,
 		$clientmac,
-		$pipeno);
+		$pipeno,
+		$retrmacap);
 
 	if ($auth_list['auth_val'] == 2) {
 		captiveportal_logportalauth($username,$clientmac,$clientip,$type);

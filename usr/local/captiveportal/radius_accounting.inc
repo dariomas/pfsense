@@ -60,7 +60,9 @@ function RADIUS_ACCOUNTING_START($ruleno, $username, $sessionid, $radiusservers,
     $clientmac = mac_format($clientmac);
     $nas_port = intval($ruleno);
     $radiusvendor = $config['captiveportal'][$cpzone]['radiusvendor'] ? $config['captiveportal'][$cpzone]['radiusvendor'] : null;
-
+    $certap="";
+    $macap="";
+    
     switch($radiusvendor) {
 
         case 'cisco':
@@ -119,7 +121,60 @@ function RADIUS_ACCOUNTING_START($ruleno, $username, $sessionid, $radiusservers,
          * }
          */
     }
-
+    if (isset($config['captiveportal'][$cpzone]['redis_server']) && isset($config['captiveportal'][$cpzone]['redis_port']) &&
+	isset($config['captiveportal'][$cpzone]['openvpn_socket'])){
+	$ovpnsock=$config['captiveportal'][$cpzone]['openvpn_socket'];
+	$openvpn= stream_socket_client('unix://'.$ovpnsock, $errno, $errstr, 30);
+        if(!$openvpn){
+            echo "$errstr ($errno)<br />\n";
+            exit;
+        }
+	
+        $end = false;
+        fwrite($openvpn, "status \r\n");
+        while (!$end) {
+           $line = fgets($openvpn, 1024);
+           $endstatus = strpos($line, "GLOBAL STATS");
+	   //end of the status 
+           if($endstatus===0){
+                $end=TRUE;
+	   }
+	   $rowclient= strpos($line, $clientmac);
+	   if($rowclient===0){ //found client mac address, I need the cert AP
+	        //60:f8:1d:5a:8a:50,l2vpn_client_11_773_775,188.9.1.55:53147,Tue May 19 16:31:06 2015
+                $field=explode(",", $line);
+	        $certap=$field[1];
+		$end=TRUE;
+	   }
+	    
+        }
+	captiveportal_logportalauth($ovpnsock.": OPENVPN SOCKET", $config['captiveportal'][$cpzone]['redis_server'].": REDIS SERVER", $certap.": CERT AP", "LOGGING AP INFO");
+        fclose($openvpn);
+	//Query Redis for custom captive page
+	$redis_server=$config['captiveportal'][$cpzone]['redis_server'];
+	$redis_port=$config['captiveportal'][$cpzone]['redis_port'];
+	$redis_db=$config['captiveportal'][$cpzone]['redis_db'];
+	$redis_field=$config['captiveportal'][$cpzone]['redis_field'];
+	$redis = fsockopen($redis_server, $redis_port, $errno, $errstr, 30);
+        if (!$redis) {
+            echo "$errstr ($errno)<br />\n";
+	    captiveportal_logportalauth($config['captiveportal'][$cpzone]['redis_server'].": REDIS SERVER", $config['captiveportal'][$cpzone]['redis_port'].": REDIS PORT", $certap.": CERT AP", "CONNECTING REDIS SERVER");
+        } else {
+	   fwrite($redis, "select $redis_db\r\n");
+	   fgets($redis, 1024);
+           fwrite($redis, "hget access_points:$certap $redis_field\r\n");
+           fgets($redis, 1024);
+	   $apinfo=fgets($redis, 1024);
+           //preg_match('/..:..:..:..:..:../', $apinfo, $matches);
+           $macap=str_replace('\"', '', $apinfo);
+	   if($macap!=""){
+              $calledstationid=strtoupper(str_replace(":", "-", $macap));
+	      $calledstationid=$calledstationid.":pfsense";
+	   }
+           captiveportal_logportalauth($calledstationid.": CALLED STATION ID", $macap.": MAC AP", $certap.": CERT AP", "LOGGING AP INFO");
+           fclose($redis);
+        }
+    }
     /*
      * NAS_PORT_TYPE, int => RADIUS_ETHERNET (15), RADIUS_WIRELESS_OTHER (18), RADIUS_WIRELESS_IEEE_802_11 (19)
      */
@@ -128,11 +183,11 @@ function RADIUS_ACCOUNTING_START($ruleno, $username, $sessionid, $radiusservers,
     $racct->putAttribute(RADIUS_NAS_PORT_TYPE, RADIUS_ETHERNET);
     $racct->putAttribute(RADIUS_NAS_PORT, $nas_port, 'integer');
     $racct->putAttribute(RADIUS_ACCT_SESSION_ID, $sessionid);
-
     // Extra data to identify the client and nas
     $racct->putAttribute(RADIUS_FRAMED_IP_ADDRESS, $clientip, "addr");
     $racct->putAttribute(RADIUS_CALLED_STATION_ID, $calledstationid);
     $racct->putAttribute(RADIUS_CALLING_STATION_ID, $callingstationid);
+    captiveportal_logportalauth($calledstationid.": CALLED STATION ID", $callingstationid.": CALLING STATION ID", $sessionid.": SESSION ID", "RADIUS ACCT INFO");
 
     // Send request
     $result = $racct->send();
@@ -236,7 +291,6 @@ function RADIUS_ACCOUNTING_STOP($ruleno,$username,$sessionid,$start_time,$radius
     $racct->putAttribute(RADIUS_NAS_PORT_TYPE, RADIUS_ETHERNET);
     $racct->putAttribute(RADIUS_NAS_PORT, $nas_port, 'integer');
     $racct->putAttribute(RADIUS_ACCT_SESSION_ID, $sessionid);
-
     // Extra data to identify the client and nas
     $racct->putAttribute(RADIUS_FRAMED_IP_ADDRESS, $clientip, "addr");
     $racct->putAttribute(RADIUS_CALLED_STATION_ID, $calledstationid);

@@ -202,6 +202,15 @@ if ($a_cp[$cpzone]) {
 	$pconfig['username_sso'] = $a_cp[$cpzone]['username_sso'];
 	$pconfig['password_sso'] = $a_cp[$cpzone]['password_sso'];
 	//### END SSO CONFIG ###
+	//### REDIS CONFIG - CUSTOM AUTHENTICATION PAGE AND RADIUS ACCT CALLED STATION ID AS 00-11-AA-BB-99-11: ###
+	$pconfig['enable_redis'] = isset($a_cp[$cpzone]['enable_redis']);
+        $pconfig['redis_server'] = $a_cp[$cpzone]['redis_server'];
+	$pconfig['redis_port'] = $a_cp[$cpzone]['redis_port'];
+	$pconfig['redis_db'] = $a_cp[$cpzone]['redis_db'];
+	$pconfig['redis_field'] = $a_cp[$cpzone]['redis_field'];
+	//OPENVPN socket is to connect to the unix socket in order to retrieve the COMMON NAME of the access point
+	$pconfig['openvpn_socket'] = $a_cp[$cpzone]['openvpn_socket'];
+	
 	$pconfig['page'] = array();
 	if ($a_cp[$cpzone]['page']['htmltext'])
 		$pconfig['page']['htmltext'] = $a_cp[$cpzone]['page']['htmltext'];
@@ -327,6 +336,13 @@ if ($_POST) {
         $input_errors[] = sprintf(gettext("A valid port number must be specified. [%s]"), $_POST['radiusacctport_sso']);
  	}
 	//### END SSO CONFIG ###
+	//### BEGIN REDIS CONFIG ###
+	if (($_POST['redis_server'] && !is_ipaddr($_POST['redis_server']))) {
+        $input_errors[] = sprintf(gettext("A valid IP address must be specified. [%s]"), $_POST['redis_server']);
+    }
+    if (($_POST['redis_port'] && !is_port($_POST['redis_port']))) {
+        $input_errors[] = sprintf(gettext("A valid port number must be specified. [%s]"), $_POST['redis_port']);
+ 	}
 	if (!$input_errors) {
 		$newcp =& $a_cp[$cpzone];
 		//$newcp['zoneid'] = $a_cp[$cpzone]['zoneid'];
@@ -428,6 +444,13 @@ if ($_POST) {
 		$newcp['username_sso']= $_POST['username_sso'];
 		$newcp['password_sso']= $_POST['password_sso'];
 	//### END SSO CONFIG ###
+	//### BEGIN REDIS CONFIG ###
+		$newcp['enable_redis']= $_POST['enable_redis'];
+		$newcp['redis_server']= $_POST['redis_server'];
+		$newcp['redis_port']= $_POST['redis_port'];
+		$newcp['redis_db']= $_POST['redis_db'];
+		$newcp['redis_field']= $_POST['redis_field'];
+		$newcp['openvpn_socket']= $_POST['openvpn_socket'];
 
 		if (!is_array($newcp['page']))
 			$newcp['page'] = array();
@@ -474,7 +497,7 @@ function enable_change(enable_change) {
 	https_endis = !((!endis && document.iform.httpslogin_enable.checked) || enable_change);
 	sso_endis = !((!endis && document.iform.enable_sso.checked) || enable_change);
 	sso_acct_endis = !((!endis && document.iform.radacct_enable_sso.checked) || enable_change);
-	
+	redis_endis=!((!endis && document.iform.enable_redis.checked) || enable_change);
 	document.iform.cinterface.disabled = endis;
 	//document.iform.maxproc.disabled = endis;
 	document.iform.maxprocperip.disabled = endis;
@@ -569,8 +592,15 @@ function enable_change(enable_change) {
 	else if (document.iform.radmac_enable.checked==true) {
 		document.iform.radmac_secret.disabled=false;
 	}
+	
 	//document.iform.radmac_secret.disabled = (!document.iform.radmac_enable.checked && document.iform.radmac_enable.disabled);
 
+	//REDIS
+	document.iform.redis_server.disabled = redis_endis;
+	document.iform.redis_port.disabled = redis_endis;
+	document.iform.redis_db.disabled = redis_endis;
+	document.iform.redis_field.disabled = redis_endis;
+	document.iform.openvpn_socket.disabled = redis_endis;
 
 }
 //]]>
@@ -736,7 +766,8 @@ function enable_change(enable_change) {
         </tr>
         <tr>
         <td><?=gettext("Default upload"); ?></td>
-        <td><input type="text" class="formfld unknown" name="bwdefaultup" id="bwdefaultup" size="10" value="<?=htmlspecialchars($pconfig['bwdefaultup']);?>" /> <?=gettext("Kbit/s"); ?></td>
+        <td><input type="text" class="formfld unknown" name="bwdefaultup" id="bwdefaultup" size="10" value="<?=htmlspecialchars($pconfig['bwdefaultup']);?>" />
+	<?=gettext("Kbit/s"); ?></td>
         </tr></table>
         <br />
         <?=gettext("If this option is set, the captive portal will restrict each user who logs in to the specified default bandwidth. RADIUS can override the default settings. Leave empty or set to 0 for no limit."); ?> </td>
@@ -793,10 +824,57 @@ function enable_change(enable_change) {
                       </tr>
                     </table>
                   </td>
-                  </tr><tr>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
                   </tr>
+		
+		<tr>
+		<td colspan="2"><input name="enable_redis" type="checkbox" id="enable_redis" class="formfld" value="none" onclick="enable_change(false)" <?php if($pconfig['enable_redis']) echo "checked=\"checked\""; ?> />
+			<?=gettext("Enable Redis Options"); ?></td>
+		</tr>
+		<tr>
+                  <td width="78%" class="vtable">
+                    <table cellpadding="0" cellspacing="0">
+			<tr>
+				<td valign="top" class="optsect_t2"><?=gettext("REDIS server"); ?></td>
+			
+                          <td><input name="redis_server" class="formfld unknown" size="40" type="text" id="redis_server" value="<?=htmlspecialchars($pconfig['redis_server']); ?>" />
+		          </td>
+                        </tr>
+			<tr>
+				<td valign="top" class="optsect_t2"><?=gettext("REDIS port"); ?></td>
+			
+                          <td><input name="redis_port" type="text" id="redis_port" class="formfld unknown" size="40" value="<?=htmlspecialchars($pconfig['redis_port']); ?>" />
+		          </td>
+                        </tr>
+			<tr>
+				<td valign="top" class="optsect_t2"><?=gettext("REDIS db"); ?></td>
+			
+                          <td><input name="redis_db" class="formfld unknown" size="40" type="text" id="redis_db" value="<?=htmlspecialchars($pconfig['redis_db']); ?>" />
+		          </td>
+                        </tr>
+			<tr>
+		          <td valign="top" class="optsect_t2"><?=gettext("REDIS field"); ?></td>
+			
+                          <td ><input name="redis_field" class="formfld unknown" size="40" type="text" id="redis_field" value="<?=htmlspecialchars($pconfig['redis_field']); ?>" />
+		          </td>
+                        </tr>
+			<tr>
+				<td valign="top" class="optsect_t2"><?=gettext("Openvpn Socket server"); ?></td>
+			
+                          <td ><input name="openvpn_socket" class="formfld unknown" size="40" type="text" id="openvpn_socket" value="<?=htmlspecialchars($pconfig['openvpn_socket']); ?>" />
+		          </td>
+                        </tr>
+                      <tr>
+                      <td>&nbsp;</td>
+                      <td>&nbsp;</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+		</tr>
+		<tr>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                </tr>
 <!--### BEGIN SSO CONFIG ###-->
 		<tr>
 			<td colspan="2">
