@@ -43,6 +43,7 @@
 */
 
 define('GIGAWORDS_RIGHT_OPERAND', '4294967296'); // 2^32
+require_once('openvpn.inc');
 
 /*
 RADIUS ACCOUNTING START 
@@ -123,33 +124,33 @@ function RADIUS_ACCOUNTING_START($ruleno, $username, $sessionid, $radiusservers,
     }
     if (isset($config['captiveportal'][$cpzone]['redis_server']) && isset($config['captiveportal'][$cpzone]['redis_port']) &&
 	isset($config['captiveportal'][$cpzone]['openvpn_socket'])){
+	/*HEADER,ROUTING_TABLE,Virtual Address,Common Name,Real Address,Last Ref,Last Ref (time_t)
+	ROUTING_TABLE,84:db:ac:ad:72:a8,l2vpn_client_2_140_136,128.127.1.154:33700,Tue Jun 16 15:13:20 2015,1434460400
+	ROUTING_TABLE,0c:41:3e:c8:32:e4,l2vpn_client_2_177_173,62.196.166.189:33432,Tue Jun 16 15:10:01 2015,1434460201
+	ROUTING_TABLE,30:75:12:4c:09:e9,l2vpn_client_2_225_221,194.244.6.211:52486,Tue Jun 16 15:09:03 2015,1434460143
+	ROUTING_TABLE,28:6a:ba:11:67:87,l2vpn_client_2_171_167,62.196.176.3:36833,Tue Jun 16 15:13:15 2015,1434460395*/
+	
+	$server=new array();
 	$ovpnsock=$config['captiveportal'][$cpzone]['openvpn_socket'];
-	$openvpn= stream_socket_client('unix://'.$ovpnsock, $errno, $errstr, 30);
-        if(!$openvpn){
+	$openvpn=openvpn_get_server_status($server, $ovpnsock) 
+	//$openvpn= stream_socket_client('unix://'.$ovpnsock, $errno, $errstr, 30);
+        
+	if(!$openvpn){
             echo "$errstr ($errno)<br />\n";
             exit;
         }
-	
-        $end = false;
-        fwrite($openvpn, "status \r\n");
-        while (!$end) {
-           $line = fgets($openvpn, 1024);
-           $endstatus = strpos($line, "GLOBAL STATS");
-	   //end of the status 
-           if($endstatus===0){
-                $end=TRUE;
-	   }
-	   $rowclient= strpos($line, $clientmac);
-	   if($rowclient===0){ //found client mac address, I need the cert AP
-	        //60:f8:1d:5a:8a:50,l2vpn_client_11_773_775,188.9.1.55:53147,Tue May 19 16:31:06 2015
-                $field=explode(",", $line);
-	        $certap=$field[1];
-		$end=TRUE;
+	$routes_vpn=$openvpn['routes'][];	
+        
+	for ($r=0; $r<=sizeof($routes_vpn); $r++) {
+	   $clients_info=$routes_vpn['routes'][$r];
+	   if($clients_info['virtual_addr']==$clientmac){	   
+	        $certap=$clients_info['common_name'];
+		break;
 	   }
 	    
         }
 	captiveportal_logportalauth($ovpnsock.": OPENVPN SOCKET", $config['captiveportal'][$cpzone]['redis_server'].": REDIS SERVER", $certap.": CERT AP", "LOGGING AP INFO");
-        fclose($openvpn);
+        
 	//Query Redis for custom captive page
 	$redis_server=$config['captiveportal'][$cpzone]['redis_server'];
 	$redis_port=$config['captiveportal'][$cpzone]['redis_port'];
