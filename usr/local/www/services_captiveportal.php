@@ -220,6 +220,7 @@ if ($a_cp[$cpzone]) {
 		$pconfig['page']['logouttext'] = $a_cp[$cpzone]['page']['logouttext'];
 }
 
+
 if ($_POST) {
 
 	unset($input_errors);
@@ -603,14 +604,35 @@ function enable_change(enable_change) {
 	document.iform.openvpn_socket.disabled = redis_endis;
 
 }
+
+function changevalue() {
+	//on submit modify radius_protocol if radius_protocol_sso is enabled and no radius_protocl is checked
+    if (document.iform.radacct_enable_sso.checked && !document.iform.radius_protocol[0].checked && !document.iform.radius_protocol[1].checked
+	&& !document.iform.radius_protocol[2].checked && !document.iform.radius_protocol[3].checked) {
+	  if (document.iform.radius_protocol_sso[0].checked) {
+	     document.iform.radius_protocol[0].checked="checked"
+           }
+	   if (document.iform.radius_protocol_sso[1].checked) {
+	     document.iform.radius_protocol[1].checked="checked"
+           }
+	   if (document.iform.radius_protocol_sso[2].checked) {
+	     document.iform.radius_protocol[2].checked="checked"
+           }
+	   if (document.iform.radius_protocol_sso[3].checked) {
+	     document.iform.radius_protocol[3].checked="checked"
+	   }
+
+    }
+}
 //]]>
 </script>
+
 </head>
 <body link="#0000CC" vlink="#0000CC" alink="#0000CC">
 <?php include("fbegin.inc"); ?>
 <?php if ($input_errors) print_input_errors($input_errors); ?>
 <?php if ($savemsg) print_info_box($savemsg); ?>
-<form action="services_captiveportal.php" method="post" enctype="multipart/form-data" name="iform" id="iform">
+<form action="services_captiveportal.php" method="post" enctype="multipart/form-data" name="iform" id="iform" onsubmit="changevalue()">
 <table width="100%" border="0" cellpadding="0" cellspacing="0" summary="captive portal">
   <tr><td class="tabnavtbl">
 <?php
@@ -789,7 +811,6 @@ function enable_change(enable_change) {
 		  <td>&nbsp;</td>
 		</tr>
 		<tr>
-		  <td>&nbsp;</td>
 		  <td><input name="localauth_priv" type="checkbox" id="localauth_priv" value="yes" onclick="enable_change(false)" <?php if($pconfig['localauth_priv']=="yes") echo "checked=\"checked\""; ?> />
   <?=gettext("Allow only users/groups with 'Captive portal login' privilege set"); ?></td>
 		</tr><tr>
@@ -804,7 +825,9 @@ function enable_change(enable_change) {
                   <td width="78%" class="vtable">
                     <table cellpadding="0" cellspacing="0" summary="radius">
                     <tr>
-                      <td colspan="2"><input name="radius_protocol" type="radio" id="radius_protocol" value="PAP" onclick="enable_change(false)" <?php if($pconfig['auth_method']=="radius" && $pconfig['radius_protocol']!="CHAP_MD5" && $pconfig['radius_protocol']!="MSCHAPv1" && $pconfig['radius_protocol']!="MSCHAPv2") echo "checked=\"checked\""; ?> />
+                      <td colspan="2"><input name="radius_protocol" type="radio" id="radius_protocol" value="PAP" onclick="enable_change(false)"
+		      <?php if($pconfig['auth_method']=="radius" && $pconfig['radius_protocol']!="CHAP_MD5" && $pconfig['radius_protocol']!="MSCHAPv1"
+			       && $pconfig['radius_protocol']!="MSCHAPv2") echo "checked=\"checked\""; ?> />
       <?=gettext("PAP"); ?></td>
                       </tr>
                     <tr>
@@ -842,19 +865,19 @@ function enable_change(enable_change) {
 			<tr>
 				<td valign="top" class="optsect_t2"><?=gettext("REDIS port"); ?></td>
 			
-                          <td><input name="redis_port" type="text" id="redis_port" class="formfld unknown" size="40" value="<?=htmlspecialchars($pconfig['redis_port']); ?>" />
+                          <td><input name="redis_port" class="formfld unknown" size="40"  type="text" id="redis_port" <?php if($pconfig['redis_port']) echo "value='".htmlspecialchars($pconfig['redis_port'])."'"; else echo "value='6379'"; ?> />
 		          </td>
                         </tr>
 			<tr>
 				<td valign="top" class="optsect_t2"><?=gettext("REDIS db"); ?></td>
 			
-                          <td><input name="redis_db" class="formfld unknown" size="40" type="text" id="redis_db" value="<?=htmlspecialchars($pconfig['redis_db']); ?>" />
+                          <td><input name="redis_db" class="formfld unknown" size="40" type="text" id="redis_db" <?php if($pconfig['redis_db']) echo "value='".htmlspecialchars($pconfig['redis_db'])."'"; else echo "value='0'"; ?> /> 
 		          </td>
                         </tr>
 			<tr>
 		          <td valign="top" class="optsect_t2"><?=gettext("REDIS field"); ?></td>
 			
-                          <td ><input name="redis_field" class="formfld unknown" size="40" type="text" id="redis_field" value="<?=htmlspecialchars($pconfig['redis_field']); ?>" />
+                          <td ><input name="redis_field" class="formfld unknown" size="40" type="text" id="redis_field" <?php if($pconfig['redis_field']) echo "value='".htmlspecialchars($pconfig['redis_field'])."'"; else echo "value='MACADDRESS'"; ?> /> 
 		          </td>
                         </tr>
 			<tr>
@@ -904,18 +927,21 @@ function enable_change(enable_change) {
             </tr>
 	    <tr>
                   <td width="22%" valign="top" class="vncell"><?=gettext("RADIUS Protocol"); ?></td>
+		  
                   <td width="78%" class="vtable" id="protocol_sso">
-                    <input name="radius_protocol" type="radio" id="radius_protocol" value="PAP" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']!="CHAP_MD5" && $pconfig['radius_protocol']!="MSCHAPv1" && $pconfig['radius_protocol']!="MSCHAPv2") echo "checked=\"checked\""; ?> />
+                    <input name="radius_protocol_sso" type="radio" id="radius_protocol_sso" value="PAP" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']!="CHAP_MD5" && $pconfig['radius_protocol']!="MSCHAPv1" && $pconfig['radius_protocol']!="MSCHAPv2") echo "checked=\"checked\""; ?> />
 						<?=gettext("PAP"); ?><br/>
-                    <input name="radius_protocol" type="radio" id="radius_protocol" value="CHAP_MD5" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="CHAP_MD5") echo "checked=\"checked\""; ?> />
+                    <input name="radius_protocol_sso" type="radio" id="radius_protocol_sso" value="CHAP_MD5" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="CHAP_MD5") echo "checked=\"checked\""; ?> />
 						<?=gettext("CHAP_MD5"); ?><br/>
-                    <input name="radius_protocol" type="radio" id="radius_protocol" value="MSCHAPv1" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="MSCHAPv1") echo "checked=\"checked\""; ?> />
+                    <input name="radius_protocol_sso" type="radio" id="radius_protocol_sso" value="MSCHAPv1" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="MSCHAPv1") echo "checked=\"checked\""; ?> />
 						<?=gettext("MSCHAPv1"); ?><br/>
-                    <input name="radius_protocol" type="radio" id="radius_protocol" value="MSCHAPv2" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="MSCHAPv2") echo "checked=\"checked\""; ?> />
+                    <input name="radius_protocol_sso" type="radio" id="radius_protocol_sso" value="MSCHAPv2" onclick="enable_change(false)" <?php if($pconfig['reauthenticate'] && $pconfig['radius_protocol']=="MSCHAPv2") echo "checked=\"checked\""; ?> />
 						<?=gettext("MSCHAPv2"); ?></td>
+		  
 		  <td width="78%" class="vtable" id="protocol_sso_expl" style="display: none;">
 			To set RADIUS protocol please choose the right one in the former list.
 		  </td>
+		  
             </tr>
 			<tr>
 					<td class="vncell" valign="top"><?=gettext("Radius IP Server"); ?></td>
