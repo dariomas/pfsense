@@ -119,8 +119,8 @@ function RADIUS_ACCOUNTING_START($ruleno, $username, $sessionid, $radiusservers,
          * }
          */
     }
-    if (isset($config['captiveportal'][$cpzone]['redis_server']) && isset($config['captiveportal'][$cpzone]['redis_port']) &&
-	    isset($config['captiveportal'][$cpzone]['openvpn_socket'])){
+    if (isset($config['captiveportal'][$cpzone]['redis_server']) && isset($config['captiveportal'][$cpzone]['redis_port'])
+	 && isset($config['captiveportal'][$cpzone]['redis_db'])){
 	    
 	    
 	    $certap="";
@@ -212,7 +212,10 @@ function RADIUS_ACCOUNTING_START($ruleno, $username, $sessionid, $radiusservers,
 		}
 	    }
 	    fclose($redis);
-	}
+    }
+    else{
+	captiveportal_logportalauth($redis_server.": REDIS SERVER", $redis_port.": REDIS PORT", $redis_db.": REDIS DB", "NO REDIS CONFIGURATION FOUND");
+    }
     /*
      * NAS_PORT_TYPE, int => RADIUS_ETHERNET (15), RADIUS_WIRELESS_OTHER (18), RADIUS_WIRELESS_IEEE_802_11 (19)
      */
