@@ -120,7 +120,7 @@ function RADIUS_ACCOUNTING_START($ruleno, $username, $sessionid, $radiusservers,
          */
     }
     if (isset($config['captiveportal'][$cpzone]['redis_server']) && isset($config['captiveportal'][$cpzone]['redis_port'])
-	 && isset($config['captiveportal'][$cpzone]['redis_db'])){
+	 && isset($config['captiveportal'][$cpzone]['redis_db']) && isset($config['captiveportal'][$cpzone]['redis_field'])){
 	    
 	    
 	    $certap="";
