@@ -123,54 +123,95 @@ function RADIUS_ACCOUNTING_START($ruleno, $username, $sessionid, $radiusservers,
 	    isset($config['captiveportal'][$cpzone]['openvpn_socket'])){
 	    
 	    
-	    $server=array();
 	    $certap="";
-            $ovpnsock=$config['captiveportal'][$cpzone]['openvpn_socket'];
-            $openvpn=openvpn_get_server_status($server, $ovpnsock) ;
-            //$openvpn= stream_socket_client('unix://'.$ovpnsock, $errno, $errstr, 30);
-	    captiveportal_logportalauth($openvpn['routes'][0].": MAC_ADDRESS", $clientmac.": CLIENT_MAC", $certap.": CERT AP", "LOGGING AP INFO");
-            if($openvpn){               
+	    $ovpnsock=array();
+	    $server=array();
 	    
-		for ($r=0; $r<=sizeof($openvpn); $r++) {
-		   $clients_info=$openvpn['routes'][$r];
-		   
-		   if($clients_info['virtual_addr']==$clientmac){
-			$certap=$clients_info['common_name'];
-			captiveportal_logportalauth($clients_info['virtual_addr'].": MAC_ADDRESS", $clientmac.": CLIENT_MAC", $certap.": CERT AP", "LOGGING AP INFO");
-			break;
-		   }
-    
+	    $cp_int=$config['captiveportal'][$cpzone]['interface'];
+    	    $int_name=$config['interfaces'][$cp_int]['if'];
+	    
+	    /*****
+	     Maybe a bridge
+	     <bridges>
+                <bridged>
+                        <members>opt1,opt2</members>
+			......
+                        <bridgeif>bridge0</bridgeif>
+                </bridged>
+              </bridges>  
+            *********/
+	    if(substr($int_name, 0, 5) == "bridge"){
+		//Lookup for openvpn interface under the bridge
+		foreach ($config['bridges']['bridged'] as $bridged){
+		    if($bridged_int['bridgeif']==$int_name){
+		       $members_field=$bridged_int['members'];
+		       $members=split($members_field,",");
+		       for($m=0; $m<count($members); $m++){
+			   $number=substr($members[$m], strpos($members[$m], "ovpns")+5 );
+			   $ovpnsock[$m]="unix:///var/etc/openvpn/server".$number.".sock";
+		       }
+		    }
 		}
-		captiveportal_logportalauth($ovpnsock.": OPENVPN SOCKET", $config['captiveportal'][$cpzone]['redis_server'].": REDIS SERVER", $certap.": CERT AP", "LOGGING AP INFO");
 		
-		//Query Redis for custom captive page
-		$redis_server=$config['captiveportal'][$cpzone]['redis_server'];
-		$redis_port=$config['captiveportal'][$cpzone]['redis_port'];
-		$redis_db=$config['captiveportal'][$cpzone]['redis_db'];
-		$redis_field=$config['captiveportal'][$cpzone]['redis_field'];
-		$redis = fsockopen($redis_server, $redis_port, $errno, $errstr, 30);
-		if (!$redis) {		    
-		    captiveportal_logportalauth($config['captiveportal'][$cpzone]['redis_server'].": REDIS SERVER", $config['captiveportal'][$cpzone]['redis_port'].": REDIS PORT", $certap.": CERT AP", "CONNECTING REDIS SERVER");
-		} else {
-		   fwrite($redis, "select $redis_db\r\n");
-		   fgets($redis, 1024);
-		   fwrite($redis, "hget access_points:$certap $redis_field\r\n");
-		   fgets($redis, 1024);
-		   $apinfo=fgets($redis, 1024);
-		   captiveportal_logportalauth($apinfo.": RIGAREDIS", $redis_db.": REDIS_DB", $certap.": CERT AP", "CONSOLE REDIS");
-		   //preg_match('/..:..:..:..:..:../', $apinfo, $matches);
-		   $macap=str_replace('\"', '', $apinfo);
-		   if($macap!=""){
-		      $macap2=strtoupper(str_replace(":", "-", $macap));
-		      #Maybe some ^M
-		      $calledstationid=substr($macap2, 0, 17);
-		      $calledstationid=$calledstationid.":pfsense";
-		   }
-		   captiveportal_logportalauth("hget access_points:".$certap." ".$redis_field.": COMANDO REDIS", $macap.": MAC AP", $certap.": CERT AP", "INTERROGA REDIS");
-		   captiveportal_logportalauth($calledstationid.": CALLED STATION ID", $macap.": MAC AP", $certap.": CERT AP", "LOGGING AP INFO");
-		   fclose($redis);
+	    }
+	    
+	    /*****
+	     Maybe an openvpn interfaces
+	     look for openvpn number and the related socket
+	    *********/
+	    else {
+		$number=substr($int_name, strpos($int_name, "ovpns")+5 );
+		$ovpnsock[0]="unix:///var/etc/openvpn/server".$number.".sock";
+		captiveportal_logportalauth($number.": OPENVPN NUMBER", $int_name.": INTERFACE NAME", $certap.": CERT AP", "OPENVPN INTERFACE");
+	    }
+	    $redis_server=$config['captiveportal'][$cpzone]['redis_server'];
+	    $redis_port=$config['captiveportal'][$cpzone]['redis_port'];
+	    $redis_db=$config['captiveportal'][$cpzone]['redis_db'];
+	    $redis_field=$config['captiveportal'][$cpzone]['redis_field'];
+	    $redis = fsockopen($redis_server, $redis_port, $errno, $errstr, 1);
+	    
+	    if($redis){
+		for($o = 0; $o < count($ovpnsock); $o++){
+		    $openvpn=openvpn_get_server_status($server, trim($ovpnsock[$o])) ;
+		    //$openvpn= stream_socket_client('unix://'.$ovpnsock, $errno, $errstr, 30);
+		    captiveportal_logportalauth($openvpn['routes'][0].": MAC_ADDRESS", $clientmac.": CLIENT_MAC", $certap.": CERT AP", "LOGGING AP INFO");
+		    if($openvpn){          
+			for ($r=0; $r<=sizeof($openvpn); $r++) {
+			   $clients_info=$openvpn['routes'][$r];
+			   
+			   if($clients_info['virtual_addr']==$clientmac){
+				$certap=$clients_info['common_name'];
+				captiveportal_logportalauth($clients_info['virtual_addr'].": MAC_ADDRESS", $clientmac.": CLIENT_MAC", $certap.": CERT AP", "LOGGING AP INFO");
+				break;
+			   }	    
+			}
+			captiveportal_logportalauth($ovpnsock[$o].": OPENVPN SOCKET", $config['captiveportal'][$cpzone]['redis_server'].": REDIS SERVER", $certap.": CERT AP", "LOGGING AP INFO");
+    			//Query Redis for MAC ADDRESS AP
+			
+			fwrite($redis, "select $redis_db\r\n");
+			fgets($redis, 1024);
+			fwrite($redis, "hget access_points:$certap $redis_field\r\n");
+			$length_size=fgets($redis, 1024);
+			//redis returns $-1 if key doesn't exist 
+			if(strpos($length_size, "-1")==false){
+			    $apinfo=fgets($redis, 1024);
+			    captiveportal_logportalauth($apinfo.": RIGAREDIS", $redis_db.": REDIS_DB", $certap.": CERT AP", "CONSOLE REDIS");
+			    //preg_match('/..:..:..:..:..:../', $apinfo, $matches);
+			    $macap=str_replace('\"', '', $apinfo);
+			    if($macap!=""){
+			       $macap2=strtoupper(str_replace(":", "-", $macap));
+			       #Maybe some ^M
+			       $calledstationid=substr($macap2, 0, 17);
+			       $calledstationid=$calledstationid.":pfsense";
+			    }
+			    captiveportal_logportalauth("hget access_points:".$certap." ".$redis_field.": COMANDO REDIS", $macap.": MAC AP", $certap.": CERT AP", "INTERROGA REDIS");
+			    captiveportal_logportalauth($calledstationid.": CALLED STATION ID", $macap.": MAC AP", $certap.": CERT AP", "LOGGING AP INFO");
+			}
+			
+		    }
 		}
 	    }
+	    fclose($redis);
 	}
     /*
      * NAS_PORT_TYPE, int => RADIUS_ETHERNET (15), RADIUS_WIRELESS_OTHER (18), RADIUS_WIRELESS_IEEE_802_11 (19)

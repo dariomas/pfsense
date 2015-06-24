@@ -208,8 +208,8 @@ if ($a_cp[$cpzone]) {
 	$pconfig['redis_port'] = $a_cp[$cpzone]['redis_port'];
 	$pconfig['redis_db'] = $a_cp[$cpzone]['redis_db'];
 	$pconfig['redis_field'] = $a_cp[$cpzone]['redis_field'];
-	//OPENVPN socket is to connect to the unix socket in order to retrieve the COMMON NAME of the access point
-	$pconfig['openvpn_socket'] = $a_cp[$cpzone]['openvpn_socket'];
+	//socket is to connect to the unix socket in order to retrieve the COMMON NAME of the access point
+	//$pconfig['openvpn_socket'] = $a_cp[$cpzone]['openvpn_socket'];
 	
 	$pconfig['page'] = array();
 	if ($a_cp[$cpzone]['page']['htmltext'])
@@ -451,7 +451,7 @@ if ($_POST) {
 		$newcp['redis_port']= $_POST['redis_port'];
 		$newcp['redis_db']= $_POST['redis_db'];
 		$newcp['redis_field']= $_POST['redis_field'];
-		$newcp['openvpn_socket']= $_POST['openvpn_socket'];
+		//$newcp['openvpn_socket']= $_POST['openvpn_socket'];
 
 		if (!is_array($newcp['page']))
 			$newcp['page'] = array();
@@ -601,7 +601,7 @@ function enable_change(enable_change) {
 	document.iform.redis_port.disabled = redis_endis;
 	document.iform.redis_db.disabled = redis_endis;
 	document.iform.redis_field.disabled = redis_endis;
-	document.iform.openvpn_socket.disabled = redis_endis;
+	//document.iform.openvpn_socket.disabled = redis_endis;
 
 }
 
@@ -880,13 +880,16 @@ function changevalue() {
                           <td ><input name="redis_field" class="formfld unknown" size="40" type="text" id="redis_field" <?php if($pconfig['redis_field']) echo "value='".htmlspecialchars($pconfig['redis_field'])."'"; else echo "value='MACADDRESS'"; ?> /> 
 		          </td>
                         </tr>
-			<tr>
-				<td valign="top" class="optsect_t2"><?=gettext("Openvpn Socket server"); ?></td>
+			<!--<tr>
+				<td valign="top" class="optsect_t2"><?=gettext("Openvpn Socket server. If you are using more than one openvpn server, list unix socket separated by ';'"); ?>
+				</td>-->
 			
-                          <td ><input name="openvpn_socket" class="formfld unknown" size="40" type="text" id="openvpn_socket" value="<?=htmlspecialchars($pconfig['openvpn_socket']); ?>" />
+                          <!--<td ><textarea name="openvpn_socket" class="formfld unknown" rows="4" cols="33" id="openvpn_socket">-->
+			  <?#=htmlspecialchars($pconfig['openvpn_socket']); ?><!--</textarea>
 		          </td>
-                        </tr>
-                      <tr>
+		        </tr>-->
+                      
+		      <tr>
                       <td>&nbsp;</td>
                       <td>&nbsp;</td>
                       </tr>
