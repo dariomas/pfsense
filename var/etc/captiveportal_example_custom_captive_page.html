@@ -1,0 +1,97 @@
+<?php
+ require_once("/etc/inc/config.inc");
+ require_once("/etc/inc/openvpn.inc");
+ $config = parse_config();
+
+ $clientip = $_SERVER['REMOTE_ADDR'];
+ $clientmac = arp_get_mac_by_ip($clientip);
+ 
+ 
+ $certap="";
+ $ovpnsock=array();
+ $server=array();
+
+ $cpzone="idem";
+ $cp_int=$config['captiveportal'][$cpzone]['interface'];
+ $int_name=$config['interfaces'][$cp_int]['if'];
+ 
+ $defaulturl="https://lameziafreewifi.it/cp";
+ $siteurl="";
+ 
+ /*****
+  Maybe a bridge
+  <bridges>
+     <bridged>
+             <members>opt1,opt2</members>
+             ......
+             <bridgeif>bridge0</bridgeif>
+     </bridged>
+   </bridges>  
+ *********/
+ if(substr($int_name, 0, 5) == "bridge"){
+     //Lookup for openvpn interface under the bridge
+     foreach ($config['bridges']['bridged'] as $bridged){
+         if($bridged_int['bridgeif']==$int_name){
+            $members_field=$bridged_int['members'];
+            $members=split($members_field,",");
+            for($m=0; $m<count($members); $m++){
+                $number=substr($members[$m], strpos($members[$m], "ovpns")+5 );
+                $ovpnsock[$m]="unix:///var/etc/openvpn/server".$number.".sock";
+            }
+         }
+     }
+     
+ }
+ 
+ /*****
+  Maybe an openvpn interfaces
+  look for openvpn number and the related socket
+ *********/
+ else {
+     $number=substr($int_name, strpos($int_name, "ovpns")+5 );
+     $ovpnsock[0]="unix:///var/etc/openvpn/server".$number.".sock";
+   
+ }
+ $redis_server=$config['captiveportal'][$cpzone]['redis_server'];
+ $redis_port=$config['captiveportal'][$cpzone]['redis_port'];
+ $redis_db=$config['captiveportal'][$cpzone]['redis_db'];
+ $redis_field="URL";
+ $redis = fsockopen($redis_server, $redis_port, $errno, $errstr, 1);
+ if($redis){
+     for($o = 0; $o < count($ovpnsock); $o++){
+         $openvpn=openvpn_get_server_status($server, trim($ovpnsock[$o])) ;
+         
+         if($openvpn){          
+             for ($r=0; $r<=sizeof($openvpn); $r++) {
+                $clients_info=$openvpn['routes'][$r];
+                
+                if($clients_info['virtual_addr']==$clientmac){
+                     $certap=$clients_info['common_name'];
+                     break;
+                }	    
+             }
+             //Query Redis for MAC ADDRESS AP
+             
+             fwrite($redis, "select $redis_db\r\n");
+             fgets($redis, 1024);
+             fwrite($redis, "hget access_points:$certap $redis_field\r\n");
+             $length_size=fgets($redis, 1024);
+             //redis returns $-1 if key doesn't exist
+             if(strpos($length_size, "-1")==false){
+                 $apinfo=fgets($redis, 1024);
+                 //preg_match('/..:..:..:..:..:../', $apinfo, $matches);
+                 $siteurl=str_replace('\"', '', $apinfo);
+                 if($siteurl!=""){
+                    $defaulturl=$siteurl."?redirurl=#PORTAL_REDIRURL#";
+                 }
+             }
+             
+         }
+     }
+ }
+ fclose($redis);
+
+?>
+<?php
+echo "<html><meta http-equiv='refresh' content='0; url=".$defaulturl."' /></html>";
+?>
