@@ -175,7 +175,10 @@ function RADIUS_ACCOUNTING_STOP($ruleno,$username,$sessionid,$start_time,$radius
     $nas_port = intval($ruleno);
     $radiusvendor = $config['captiveportal'][$cpzone]['radiusvendor'] ? $config['captiveportal'][$cpzone]['radiusvendor'] : null;
     $stop_time = (empty($stop_time)) ? time() : $stop_time;
-    $session_time = $stop_time - $start_time;
+    // patch to problem in acctsessiontime = 2147483647
+	// https://redmine.pfsense.org/issues/2710
+	// $session_time = $stop_time - $start_time;
+	$session_time = ($stop_time - $start_time) < 0 ? 0 : ($stop_time - $start_time);
     $volume = getVolume($clientip, $clientmac);
     $volume['input_bytes_radius'] = remainder($volume['input_bytes']);
     $volume['input_gigawords'] = gigawords($volume['input_bytes']);
