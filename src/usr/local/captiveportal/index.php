@@ -84,7 +84,37 @@ if ((!empty($cpsession)) && (! $_POST['logout_id']) && (!empty($cpcfg['page']['l
 	   it's connected to us. Issue a redirect... */
 	$protocol = (isset($cpcfg['httpslogin'])) ? 'https://' : 'http://';
 	header("Location: {$protocol}{$ourhostname}/index.php?zone={$cpzone}&redirurl=" . urlencode("http://{$orig_host}/{$orig_request}"));
+	$wisprlocation = "{$protocol}{$ourhostname}/index.php?zone={$cpzone}&redirurl=" . urlencode("http://{$orig_host}/{$orig_request}");
+	$wisprhtmltext = <<<EOD
+<html>
+<!--
+<?xml version="1.0" encoding="UTF-8"?>
+  <WISPAccessGatewayParam
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://{$ourhostname}/xml/WISPAccessGatewayParam.xsd">
+    <Redirect>
+	<AccessProcedure>1.0</AccessProcedure>
+	<AccessLocation>isocc=it,cc=39,ac=0382,network={$cpzone}</AccessLocation>
+	<LocationName>{$cpzone}</LocationName>
+	<LoginURL>{$wisprlocation}</LoginURL>
+	<MessageType>100</MessageType>
+	<ResponseCode>0</ResponseCode>
+    </Redirect>
+  </WISPAccessGatewayParam>
+-->
+<head>
+<title>...</title>
+<meta http-equiv="pragma" content="no-cache">
+<meta http-equiv="expires" content="-1">
+<meta http-equiv="refresh" content="0; url={$wisprlocation}">
+</head>
+<body>
+</body>
+</html>
 
+EOD;
+
+	echo $wisprhtmltext;
 	ob_flush();
 	return;
 }
@@ -129,9 +159,20 @@ if ($_POST['auth_user2']) {
 	$radiusctx = 'second';
 }
 
-if ($_POST['logout_id']) {
+if ($_REQUEST['logout_id']) {
 	echo <<<EOD
 <html>
+<!--
+<?xml version="1.0" encoding="UTF-8"?>
+  <WISPAccessGatewayParam
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://{$ourhostname}/xml/WISPAccessGatewayParam.xsd">
+    <LogoffReply>
+	<MessageType>130</MessageType>
+	<ResponseCode>150</ResponseCode>
+    </LogoffReply>
+  </WISPAccessGatewayParam>
+-->
 <head><title>Disconnecting...</title></head>
 <body bgcolor="#435370">
 <span style="color: #ffffff; font-family: Tahoma, Verdana, Arial, Helvetica, sans-serif; font-size: 11px;">
@@ -192,14 +233,17 @@ EOD;
 		portal_reply_page($redirurl, "error", $config['voucher'][$cpzone]['descrmsgnoaccess'] ? $config['voucher'][$cpzone]['descrmsgnoaccess'] : $errormsg);
 	}
 
-} else if ($_POST['accept'] && $radius_enable) {
-	if (($_POST['auth_user'] && isset($_POST['auth_pass'])) || ($_POST['auth_user2'] && isset($_POST['auth_pass2']))) {
+} else if (($_POST['accept'] || $_POST['button']) && $radius_enable) {
+	if (($_POST['auth_user'] && isset($_POST['auth_pass'])) || ($_POST['auth_user2'] && isset($_POST['auth_pass2'])) || ($_POST['UserName'] && isset($_POST['Password']))) {
 		if (!empty($_POST['auth_user'])) {
 			$user = $_POST['auth_user'];
 			$paswd = $_POST['auth_pass'];
 		} else if (!empty($_POST['auth_user2'])) {
 			$user = $_POST['auth_user2'];
 			$paswd = $_POST['auth_pass2'];
+		}else if (!empty($_POST['UserName'])) {
+			$user = $_POST['UserName'];
+			$paswd = $_POST['Password'];
 		}
 		$auth_list = radius($user, $paswd, $clientip, $clientmac, "USER LOGIN", $radiusctx);
 		$type = "error";
@@ -214,6 +258,45 @@ EOD;
 		} else if ($auth_list['auth_val'] == 3) {
 			captiveportal_logportalauth($user, $clientmac, $clientip, "FAILURE", $auth_list['reply_message']);
 			portal_reply_page($redirurl, $type, $auth_list['reply_message'] ? $auth_list['reply_message'] : $errormsg);
+			$wisprhtmltext = <<<EOD
+
+<!--
+<?xml version="1.0" encoding="UTF-8"?>
+  <WISPAccessGatewayParam
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://{$ourhostname}/xml/WISPAccessGatewayParam.xsd">
+    <AuthenticationReply>
+	<MessageType>120</MessageType>
+	<ResponseCode>100</ResponseCode>
+	<ReplyMessage>{$auth_list['reply_message']}</ReplyMessage>
+    </AuthenticationReply>
+  </WISPAccessGatewayParam>
+-->
+
+EOD;
+			echo $wisprhtmltext;
+		} else if ($auth_list['auth_val'] == 2) {
+			$sessionid = $cpsession['sessionid'];
+			$protocol = (isset($config['captiveportal'][$cpzone]['httpslogin'])) ? 'https://' : 'http://';
+			$logouturl = "{$protocol}{$ourhostname}//index.php?zone={$cpzone}&logout_id={$sessionid}";
+			$wisprhtmltext = <<<EOD
+<HTML> <!--
+<?xml version="1.0" encoding="UTF-8"?>
+  <WISPAccessGatewayParam
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://{$ourhostname}/xml/WISPAccessGatewayParam.xsd">
+    <AuthenticationReply>
+	<MessageType>120</MessageType>
+	<ResponseCode>50</ResponseCode>
+	<LogoffURL>{$logouturl}</LogoffURL>
+	<RedirectionURL>{$redirurl}</RedirectionURL>
+	<ReplyMessage>{$auth_list['reply_message']}</ReplyMessage>
+   </AuthenticationReply>
+  </WISPAccessGatewayParam>
+--> </HTML>
+
+EOD;
+			echo $wisprhtmltext;
 		}
 	} else {
 		if (!empty($_POST['auth_user'])) {
